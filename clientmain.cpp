@@ -33,63 +33,80 @@ int main(int argc, char *argv[]) {
     string hostname;
     string port_string;
     
-    // Find the colon to separate host and port
-    // This should work for most cases I think
-    int colon_pos = input.find(':');
-    if (colon_pos == string::npos) {
-        cout << "Invalid host:port format" << endl;
-        return 1;
+    
+    if (input[0] == '[') {
+        size_t bracket_end = input.find(']');
+        if (bracket_end == string::npos || bracket_end + 1 >= input.length() || input[bracket_end + 1] != ':') {
+            cout << "Invalid bracketed IPv6 format" << endl;
+            return 1;
+        }
+        hostname = input.substr(1, bracket_end - 1);  // Extract between brackets
+        port_string = input.substr(bracket_end + 2);  // After ]:
+    } else {
+        // Find the last colon to separate host and port
+        // This works for IPv4 (127.0.0.1:5000) and simple IPv6 (::1:5000)
+        size_t colon_pos = input.rfind(':');
+        if (colon_pos == string::npos) {
+            cout << "Invalid host:port format" << endl;
+            return 1;
+        }
+        
+        hostname = input.substr(0, colon_pos);
+        port_string = input.substr(colon_pos + 1);
     }
-    
-    hostname = input.substr(0, colon_pos);
-    port_string = input.substr(colon_pos + 1);
-    
-    int port_number = atoi(port_string.c_str());
     
     cout << "Host " << hostname << ", and port " << port_string << "." << endl;
     
     
-    // Create a socket to connect to the server
-    int client_socket = socket(AF_INET, SOCK_STREAM, 0);
+    // Get address information for both IPv4 and IPv6
+    // This will help us connect to any type of address
+    struct addrinfo hints;
+    struct addrinfo *result;
     
-    if (client_socket < 0) {
-        cout << "ERROR: Could not create socket" << endl;
+    // Set up hints for what kind of address we want
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;    // Allow both IPv4 and IPv6
+    hints.ai_socktype = SOCK_STREAM; // We want TCP connection
+    
+    // Try to get address info for the hostname and port
+    int addr_result = getaddrinfo(hostname.c_str(), port_string.c_str(), &hints, &result);
+    
+    if (addr_result != 0) {
+        cout << "ERROR: RESOLVE ISSUE" << endl;
         return 1;
     }
     
     
-    // Set up the server address
-    struct sockaddr_in server_address;
+    // Try to connect using the resolved addresses
+    // We'll try each address until one works
+    int client_socket = -1;
+    struct addrinfo *current_addr;
     
-    server_address.sin_family = AF_INET;
-    server_address.sin_port = htons(port_number);
-    
-    
-    // Convert the hostname to an IP address
-    // First try if it's already an IP address
-    if (inet_aton(hostname.c_str(), &server_address.sin_addr) == 0) {
+    for (current_addr = result; current_addr != NULL; current_addr = current_addr->ai_next) {
         
-        // If not an IP, try to resolve hostname using DNS
-        // I hope this works for all hostnames
-        struct hostent *host_entry;
-        host_entry = gethostbyname(hostname.c_str());
+        // Create a socket for this address type
+        client_socket = socket(current_addr->ai_family, current_addr->ai_socktype, current_addr->ai_protocol);
         
-        if (host_entry == NULL) {
-            cout << "ERROR: RESOLVE ISSUE" << endl;
-            close(client_socket);
-            return 1;
+        if (client_socket < 0) {
+            continue; // Try next address if socket creation fails
         }
         
-        // Copy the first IP address from the host entry
-        // This should give us the IP address to connect to
-        memcpy(&server_address.sin_addr, host_entry->h_addr_list[0], host_entry->h_length);
+        // Try to connect using this address
+        if (connect(client_socket, current_addr->ai_addr, current_addr->ai_addrlen) == 0) {
+            break; // Connection successful!
+        }
+        
+        // Connection failed, close socket and try next address
+        close(client_socket);
+        client_socket = -1;
     }
     
+    // Clean up the address info memory
+    freeaddrinfo(result);
     
-    // Try to connect to the server
-    if (connect(client_socket, (struct sockaddr*)&server_address, sizeof(server_address)) < 0) {
+    // Check if we managed to connect
+    if (client_socket < 0) {
         cout << "ERROR: CANT CONNECT TO " << hostname << endl;
-        close(client_socket);
         return 1;
     }
     
