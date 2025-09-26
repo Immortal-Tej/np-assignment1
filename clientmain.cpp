@@ -1,33 +1,54 @@
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-/* You will to add includes here */
 
-// Enable if you want debugging to be printed, see examble below.
-// Alternative, pass CFLAGS=-DDEBUG to make, make CFLAGS=-DDEBUG
-#define DEBUG
+// This is a TCP client program that connects to a server
+// It talks to the server and does math calculations
+// Written for the network programming assignment
 
+#include <iostream>
+#include <string>
+#include <cstring>
+#include <cstdlib>
 
-// Included to get the support library
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+
+// I'm including this library for the calculator functions
 #include <calcLib.h>
 
-int main(int argc, char *argv[]){
+using namespace std;
 
-  /*
-    Read first input, assumes <ip>:<port> syntax, convert into one string (Desthost) and one integer (port). 
-     Atm, works only on dotted notation, i.e. IPv4 and DNS. IPv6 does not work if its using ':'. 
-  */
-  char delim[]=":";
-  char *Desthost=strtok(argv[1],delim);
-  char *Destport=strtok(NULL,delim);
-  // *Desthost now points to a sting holding whatever came before the delimiter, ':'.
-  // *Dstport points to whatever string came after the delimiter. 
-
-  /* Do magic */
-  int port=atoi(Destport);
-#ifdef DEBUG 
-  printf("Host %s, and port %d.\n",Desthost,port);
-#endif
-
-  
+int main(int argc, char *argv[]) {
+    // Check if the user provided the right arguments
+    if (argc != 2) {
+        cout << "Usage: ./client <host:port>" << endl;
+        return 1;
+    }
+    
+    
+    // Parse the host and port from the command line
+    string input = argv[1];
+    
+    string hostname;
+    string port_string;
+    
+    // Find the colon to separate host and port
+    // This should work for most cases I think
+    int colon_pos = input.find(':');
+    if (colon_pos == string::npos) {
+        cout << "Invalid host:port format" << endl;
+        return 1;
+    }
+    
+    hostname = input.substr(0, colon_pos);
+    port_string = input.substr(colon_pos + 1);
+    
+    int port_number = atoi(port_string.c_str());
+    
+    cout << "Host " << hostname << ", and port " << port_string << "." << endl;
+    
+    // TODO: Add socket connection
+    cout << "Socket connection not implemented yet" << endl;
+    
+    return 0;
 }
