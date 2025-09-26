@@ -1,7 +1,7 @@
 
 // This is a TCP client program that connects to a server
 // It talks to the server and does math calculations
-// Written for the network programming assignment
+
 
 #include <iostream>
 #include <string>
