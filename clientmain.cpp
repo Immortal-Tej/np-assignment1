@@ -94,25 +94,61 @@ int main(int argc, char *argv[]) {
     }
     
     
-    // Read the protocols that the server supports
-    string protocol_line;
+    // Set a timeout for reading so we don't hang forever
+    struct timeval timeout;
+    timeout.tv_sec = 5;  // 5 second timeout
+    timeout.tv_usec = 0;
+    setsockopt(client_socket, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
     
-    bool found_our_protocol = false;
     
+    // Read the first line from the server
+    string first_line = "";
     
+    char c;
+    
+    // Read one character at a time until we get a newline
     while (true) {
-        protocol_line = "";
+        int bytes_read = recv(client_socket, &c, 1, 0);
         
-        char c;
+        if (bytes_read <= 0) {
+            cout << "ERROR: MISSMATCH PROTOCOL" << endl;
+            close(client_socket);
+            return 1;
+        }
+        
+        if (c == '\n') {
+            break;
+        }
+        
+        first_line = first_line + c;
+    }
+    
+    
+    // Check if the first line is exactly what we need
+    // We only support "TEXT TCP 1.0"
+    if (first_line != "TEXT TCP 1.0") {
+        cout << "ERROR: MISSMATCH PROTOCOL" << endl;
+        close(client_socket);
+        return 1;
+    }
+    
+    
+    // Now read the rest of the protocol lines until empty line
+    // But limit how many lines we read to avoid hanging
+    int max_protocol_lines = 10;
+    int lines_read = 0;
+    
+    
+    while (lines_read < max_protocol_lines) {
+        string protocol_line = "";
         
         // Read one character at a time until we get a newline
         while (true) {
             int bytes_read = recv(client_socket, &c, 1, 0);
             
             if (bytes_read <= 0) {
-                cout << "Connection error while reading protocols" << endl;
-                close(client_socket);
-                return 1;
+                // Timeout or connection error, but we already got TEXT TCP 1.0
+                break;
             }
             
             if (c == '\n') {
@@ -127,21 +163,7 @@ int main(int argc, char *argv[]) {
             break;
         }
         
-        
-        // Check if this is the protocol we want
-        // We only support "TEXT TCP 1.0"
-        if (protocol_line == "TEXT TCP 1.0") {
-            found_our_protocol = true;
-        }
-        
-    }
-    
-    
-    // Check if the server supports our protocol
-    if (!found_our_protocol) {
-        cout << "ERROR: MISSMATCH PROTOCOL" << endl;
-        close(client_socket);
-        return 1;
+        lines_read++;
     }
     
     
@@ -159,8 +181,6 @@ int main(int argc, char *argv[]) {
     
     // Read the assignment from the server
     string assignment_line = "";
-    
-    char c;
     
     while (true) {
         int bytes_read = recv(client_socket, &c, 1, 0);
@@ -216,11 +236,124 @@ int main(int argc, char *argv[]) {
     cout << "ASSIGNMENT: " << operation << " " << value1_string << " " << value2_string << endl;
     
     
-    // TODO: Calculate result based on operation
-    cout << "Calculation not implemented yet" << endl;
     
-    // Close the socket
+    // Calculate the result based on the operation
+    string result_string;
+    
+    
+    if (operation[0] == 'f') {
+        
+        // This is a floating point operation
+        double value1 = atof(value1_string.c_str());
+        double value2 = atof(value2_string.c_str());
+        
+        double result;
+        
+        
+        if (operation == "fadd") {
+            result = value1 + value2; // Addition
+            
+        } else if (operation == "fsub") {
+            result = value1 - value2; // Subtraction
+            
+        } else if (operation == "fmul") {
+            result = value1 * value2; // Multiplication
+            
+        } else if (operation == "fdiv") {
+            result = value1 / value2; // Division
+            
+        } else {
+            result = 0.0; // Default case for unknown operation
+        }
+        
+        
+        // Formating the floating point
+        char buffer[100];
+        sprintf(buffer, "%8.8g", result);
+        
+        result_string = string(buffer) + "\n";
+        
+    } else {
+        
+        // This is an integer operation
+        long long value1 = atoll(value1_string.c_str());
+        long long value2 = atoll(value2_string.c_str());
+        
+        long long result;
+        
+        
+        if (operation == "add") {
+            result = value1 + value2; // Addition
+            
+        } else if (operation == "sub") {
+            result = value1 - value2; // Subtraction
+            
+        } else if (operation == "mul") {
+            result = value1 * value2; // Multiplication
+            
+        } else if (operation == "div") {
+            result = value1 / value2; // Integer division
+            
+        } else {
+            result = 0; // Default case for unknown operation
+        }
+        
+        
+        // Convert result to string
+        char buffer[100];
+        sprintf(buffer, "%lld", result);
+        
+        result_string = string(buffer) + "\n";
+        
+    }
+    
+    
+    // Send the result back to the server
+    int send_result2 = send(client_socket, result_string.c_str(), result_string.length(), 0);
+    
+    if (send_result2 <= 0) {
+        cout << "Failed to send result" << endl;
+        close(client_socket);
+        return 1;
+    }
+    
+    
+    // Read the server's response (OK or ERROR)
+    string server_response = "";
+    
+    
+    while (true) {
+        int bytes_read = recv(client_socket, &c, 1, 0);
+        
+        if (bytes_read <= 0) {
+            cout << "Failed to read server response" << endl;
+            close(client_socket);
+            return 1;
+        }
+        
+        
+        if (c == '\n') {
+            break;
+        }
+        
+        server_response = server_response + c;
+    }
+    
+    
+    // Remove the newline from result_string for display
+    string display_result = result_string;
+    
+    if (!display_result.empty() && display_result.back() == '\n') {
+        display_result.pop_back();
+    }
+    
+    
+    // Print the final result
+    cout << server_response << " (myresult=" << display_result << ")" << endl;
+    
+    
     close(client_socket);
     
-    return 0;
+    
+    return 0; // Success!
 }
