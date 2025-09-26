@@ -157,8 +157,67 @@ int main(int argc, char *argv[]) {
     }
     
     
-    // TODO: Read and handle assignment from server
-    cout << "Connected successfully! Assignment handling not implemented yet." << endl;
+    // Read the assignment from the server
+    string assignment_line = "";
+    
+    char c;
+    
+    while (true) {
+        int bytes_read = recv(client_socket, &c, 1, 0);
+        
+        if (bytes_read <= 0) {
+            cout << "Failed to read assignment" << endl;
+            close(client_socket);
+            return 1;
+        }
+        
+        
+        if (c == '\n') {
+            break;
+        }
+        
+        assignment_line = assignment_line + c;
+    }
+    
+    
+    // Parse the assignment line to get operation and values
+    string operation;
+    string value1_string;
+    string value2_string;
+    
+    
+    // Find the first space
+    int space1 = assignment_line.find(' ');
+    
+    if (space1 == string::npos) {
+        cout << "Invalid assignment format" << endl;
+        close(client_socket);
+        return 1;
+    }
+    
+    
+    // Find the second space
+    int space2 = assignment_line.find(' ', space1 + 1);
+    
+    if (space2 == string::npos) {
+        cout << "Invalid assignment format" << endl;
+        close(client_socket);
+        return 1;
+    }
+    
+    
+    operation = assignment_line.substr(0, space1);
+    
+    value1_string = assignment_line.substr(space1 + 1, space2 - space1 - 1);
+    
+    value2_string = assignment_line.substr(space2 + 1);
+    
+    
+    cout << "ASSIGNMENT: " << operation << " " << value1_string << " " << value2_string << endl;
+    
+    
+    // TODO: Calculate result based on operation
+    cout << "Calculation not implemented yet" << endl;
     
     // Close the socket
     close(client_socket);
