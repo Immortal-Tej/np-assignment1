@@ -50,3 +50,8 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+TODO.md
+info.md
+git_info.md
+*.bak
