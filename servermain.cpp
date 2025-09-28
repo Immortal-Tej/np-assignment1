@@ -12,6 +12,53 @@
 
 using namespace std;
 
+void sendAssignment(int clientfd, double *server_result, int *is_float) {
+  char *op = randomType();
+  char msg[1450];
+  
+  memset(msg, 0, sizeof(msg));
+  
+  if (op[0] == 'f') {
+    double fv1 = randomFloat();
+    double fv2 = randomFloat();
+    double fresult;
+    
+    if (strcmp(op, "fadd") == 0) {
+      fresult = fv1 + fv2;
+    } else if (strcmp(op, "fsub") == 0) {
+      fresult = fv1 - fv2;
+    } else if (strcmp(op, "fmul") == 0) {
+      fresult = fv1 * fv2;
+    } else if (strcmp(op, "fdiv") == 0) {
+      fresult = fv1 / fv2;
+    }
+    
+    sprintf(msg, "%s %8.8g %8.8g\n", op, fv1, fv2);
+    *server_result = fresult;
+    *is_float = 1;
+    
+  } else {
+    int iv1 = randomInt();
+    int iv2 = randomInt();
+    int iresult;
+    
+    if (strcmp(op, "add") == 0) {
+      iresult = iv1 + iv2;
+    } else if (strcmp(op, "sub") == 0) {
+      iresult = iv1 - iv2;
+    } else if (strcmp(op, "mul") == 0) {
+      iresult = iv1 * iv2;
+    } else if (strcmp(op, "div") == 0) {
+      iresult = iv1 / iv2;
+    }
+    
+    sprintf(msg, "%s %d %d\n", op, iv1, iv2);
+    *server_result = (double)iresult;
+    *is_float = 0;
+  }
+  
+  send(clientfd, msg, strlen(msg), 0);
+}
 
 int main(int argc, char *argv[]){
   
@@ -111,7 +158,12 @@ int main(int argc, char *argv[]){
         buffer[bytes_received] = '\0';
         
         if (strcmp(buffer, "OK\n") == 0) {
-          // For now, just close after handshake
+          double server_result;
+          int is_float;
+          
+          sendAssignment(clientfd, &server_result, &is_float);
+          
+          // For now, just close after sending assignment
           close(clientfd);
         } else {
           close(clientfd);
