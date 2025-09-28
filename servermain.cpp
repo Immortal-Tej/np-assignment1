@@ -5,6 +5,7 @@
 #include <netdb.h>
 #include <unistd.h>
 #include <sys/select.h>
+#include <math.h>
 
 #include <calcLib.h>
 
@@ -161,10 +162,57 @@ int main(int argc, char *argv[]){
           double server_result;
           int is_float;
           
+          // After connection, send random assignment
           sendAssignment(clientfd, &server_result, &is_float);
           
-          // For now, just close after sending assignment
-          close(clientfd);
+          // So basically, let's wait 5secs for an answer
+          FD_ZERO(&readfds); 
+          FD_SET(clientfd, &readfds);
+          timeout.tv_sec = 5;
+          timeout.tv_usec = 0;
+          
+          // use select to wait for answer
+          int answer_result = select(clientfd + 1, &readfds, NULL, NULL, &timeout);
+          
+          if (answer_result == 0) { // send timeout if no answer
+            const char *timeout_msg = "ERROR TO\n";
+            send(clientfd, timeout_msg, strlen(timeout_msg), 0);
+            close(clientfd);
+          } else if (answer_result > 0) {
+            // Receive client's answer
+            char answer_buffer[256];
+            int answer_bytes = recv(clientfd, answer_buffer, sizeof(answer_buffer) - 1, 0);
+            
+            if (answer_bytes > 0) {
+              answer_buffer[answer_bytes] = '\0';
+              
+              double client_result = atof(answer_buffer);
+              int correct = 0;
+              
+              if (is_float) {
+                // Float comparison with tolerance
+                if (fabs(client_result - server_result) < 0.0001) {
+                  correct = 1;
+                }
+              } else {
+                // Integer exact comparison
+                if ((int)client_result == (int)server_result) {
+                  correct = 1;
+                }
+              }
+              
+              if (correct) {
+                const char *ok_msg = "OK\n";
+                send(clientfd, ok_msg, strlen(ok_msg), 0);
+              } else {
+                const char *error_msg = "ERROR\n";
+                send(clientfd, error_msg, strlen(error_msg), 0);
+              }
+            }
+            close(clientfd);
+          } else {
+            close(clientfd);
+          }
         } else {
           close(clientfd);
         }
