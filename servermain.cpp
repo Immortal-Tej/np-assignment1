@@ -96,7 +96,7 @@ int main(int argc, char *argv[]){
   }
   
   int yes = 1;
-  if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) {
+  if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) { 
     printf("setsockopt failed\n");
     close(sockfd);
     freeaddrinfo(servinfo);
